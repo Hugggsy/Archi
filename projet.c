@@ -21,6 +21,26 @@ float vect_gm(float *U, float *W, float a, int k, int n)
 {
 }
 
+float gen_gm(float *U, float *W, float a, int k, int n, int mode)
+{
+    float res;
+    if (mode == 0)
+    {
+        res = gm(U, W, a, k, n);
+    }
+    else
+    {
+        res = vect_gm(U, W, a, k, n);
+    }
+    return res;
+}
+
+float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_threads)
+{
+    if (mode == 0)
+    {
+    }
+}
 void main(int argc, char const *argv[])
 {
     char *end;
