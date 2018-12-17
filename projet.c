@@ -16,6 +16,12 @@
 #include <xmmintrin.h>
 #include <pmmintrin.h>
 
+struct thread_res
+{
+    float sum_of_weights;
+    float sum_of_weighted_diff;
+};
+
 struct thread_args
 {
     float *U;
@@ -24,6 +30,7 @@ struct thread_args
     int k;
     int n;
     int mode;
+    struct thread_res res;
 };
 
 double now()
@@ -101,6 +108,10 @@ float gm(float *U, float *W, float a, int k, int N)
     return sum_R / sum_W;
 }
 
+float sum_R(float *U, float *W, float a, int k, int N)
+{
+}
+
 //EXECUTE CALCUL VECTORIEL ET RETOURNE RESULTAT
 float vect_gm(float *U, float *W, float a, int k, int N)
 {
@@ -115,7 +126,6 @@ float vect_gm(float *U, float *W, float a, int k, int N)
 
 float gen_gm(void *thread_args)
 {
-    float res;
     struct thread_args *arg = (struct thread_args *)thread_args;
     float *U = arg->U;
     float *W = arg->W;
@@ -125,13 +135,14 @@ float gen_gm(void *thread_args)
     int mode = arg->mode;
     if (mode == 0)
     {
-        res = gm(U, W, a, k, n);
+        arg->res.sum_of_weights = sum(W, n);
+        arg->res.sum_of_weights = sum(W, n);
     }
     else
     {
         res = vect_gm(U, W, a, k, n);
     }
-    return res;
+    pthread_exit(NULL);
 }
 
 float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_threads)
@@ -142,6 +153,8 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
     void *status;
     long t;
     int size_of_partition = n / nb_threads;
+    // Store result in struct table
+    struct thread_args args[nb_threads];
 
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -157,12 +170,12 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
             partition_of_v[i] = W[i];
         }
         // Create struct for passing args to compute function
-        struct thread_args args;
-        args.U = partition_of_u;
-        args.W = partition_of_v;
-        args.a = a;
-        args.n = size_of_partition;
-        args.mode = mode;
+        struct thread_args arg = args[t];
+        arg.U = partition_of_u;
+        arg.W = partition_of_v;
+        arg.a = a;
+        arg.n = size_of_partition;
+        arg.mode = mode;
         printf("Main: creating thread %ld\n", t);
         error_code = pthread_create(&thread[t], &attr, gen_gm, (void *)&args);
         if (error_code)
@@ -181,6 +194,7 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
             }
             printf("Join with thread %ld with status %ld\n", t, (long)status);
         }
+        pthread_exit(NULL);
     }
 }
 
