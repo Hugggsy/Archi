@@ -11,8 +11,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+<<<<<<< HEAD
 #include <xmmintrin.h>
 #include <pmmintrin.h>
+=======
+#include <immintrin.h>
+>>>>>>> 0b9270175358c50b27e04d2a67ee02365e226bee
 
 double now(){
     // Retourne l'heure actuelle en secondes
@@ -90,13 +94,38 @@ float vect_gm(float *U, float *W, float a, int k, int N)
     return sum(RV, N)/sum(W, N);
 }
 
+<<<<<<< HEAD
 int main(int argc, char const *argv[])
+=======
+float gen_gm(float *U, float *W, float a, int k, int n, int mode)
+{
+    float res;
+    if (mode == 0)
+    {
+        res = gm(U, W, a, k, n);
+    }
+    else
+    {
+        res = vect_gm(U, W, a, k, n);
+    }
+    return res;
+}
+
+float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_threads)
+{
+    if (mode == 0)
+    {
+    }
+}
+void main(int argc, char const *argv[])
+>>>>>>> 0b9270175358c50b27e04d2a67ee02365e226bee
 {
     // On lit les arguments passé avec l'appel de main
     char *end;
     int NUM_THREADS = strtol(argv[1], &end, 10);
     int N = strtol(argv[2], &end, 10);
 
+<<<<<<< HEAD
     //Ici on déclare tous nos vecteurs en prenant soin de les aligner
     float U[N] __attribute__((aligned(N_ALIGN)));
     float W[N] __attribute__((aligned(N_ALIGN)));
@@ -120,4 +149,22 @@ int main(int argc, char const *argv[])
     printf("S = %10.3g Temps du code vectoriel : %f seconde(s)\n", rv, t);
 
     return 0;
+=======
+    float res = 0;
+    int n = 100000;
+
+    float U[n];
+    float W[n];
+    for (int i = 0; i < n; i++)
+    {
+        W[i] = 1;
+        U[i] = 10;
+    }
+
+    if (NUM_THREADS == 1)
+    {
+        res = gm(U, W, 0, 1, n);
+    }
+    printf("%10g\n", res);
+>>>>>>> 0b9270175358c50b27e04d2a67ee02365e226bee
 }
