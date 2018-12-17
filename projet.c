@@ -139,6 +139,7 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
     pthread_t thread[nb_threads];
     pthread_attr_t attr;
     int error_code;
+    void *status;
     long t;
     int size_of_partition = n / nb_threads;
 
@@ -169,6 +170,17 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
             printf("ERROR; return code from pthread_create() is %d\n", error_code);
             exit(-1);
         }
+        pthread_attr_destroy(&attr);
+        for (t = 0; t < nb_threads; t++)
+        {
+            error_code = pthread_join(thread[t], &status);
+            if (error_code)
+            {
+                printf("ERROR: pthread_join() is %d\n", error_code);
+                exit(-1);
+            }
+            printf("Join with thread %ld with status %ld\n", t, (long)status);
+        }
     }
 }
 
@@ -193,14 +205,16 @@ int main(int argc, char const *argv[])
     t = now();
     rs = gm(U, W, a, k, N);
     t = now() - t;
-    printf("S = %10.3g Temps du code scalaire : %f seconde(s)\n", rs, t);
+    printf("MP = %10.3g Temps du code scalaire : %f seconde(s)\n", rs, t);
 
     // Calcul vectoriel
     t = now();
     rv = vect_gm(U, W, a, k, N);
     t = now() - t;
-    printf("S = %10.3g Temps du code vectoriel : %f seconde(s)\n", rv, t);
+    printf("MP = %10.3g Temps du code vectoriel : %f seconde(s)\n", rv, t);
 
+    t = now();
     rp = parallel_gm(U, W, 0, 1, N, 0, 1);
-    printf("S = %10.3g Temps du code parallele : %f seconde(s)\n", rp, t);
+    t = now() - t;
+    printf("MP = %10.3g Temps du code parallele : %f seconde(s)\n", rp, t);
 }
