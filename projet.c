@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <immintrin.h>
 
 float gm(float *U, float *W, float a, int k, int n)
 {
@@ -26,19 +27,19 @@ void main(int argc, char const *argv[])
     int NUM_THREADS = strtol(argv[1], &end, 10);
 
     float res = 0;
-    int n = 1000;
+    int n = 100000;
 
     float U[n];
     float W[n];
     for (int i = 0; i < n; i++)
     {
         W[i] = 1;
-        U[i] = 12414424.268 * i;
+        U[i] = 10;
     }
 
     if (NUM_THREADS == 1)
     {
-        res = gm(U, W, 0, 1, 100);
+        res = gm(U, W, 0, 1, n);
     }
     printf("%10g\n", res);
 }
