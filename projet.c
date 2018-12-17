@@ -79,14 +79,13 @@ void run_sse(float *U, float *W, float *A, float *RV, int k, int N)
     unsigned int j;
     __m128 mm_U, mm_W, mm_A, mm_t, mm_p; //On déclare cinq registres vectoriels
     mm_A = _mm_load_ps(&A[0]);
-    mm_p = _mm_set1_ps(1.0f); // Pour calculer la puissance k
 
     for (i = 0; i < N; i += 4)
     {
+        mm_p = _mm_set1_ps(1.0f); // Pour calculer la puissance k
         mm_U = _mm_load_ps(&U[i]); //On charge (U[4i], U[4i+1], U[4i+2], U[4i+3])
         mm_W = _mm_load_ps(&W[i]); //On charge (W[4i], W[4i+1], W[4i+2], W[4i+3])
-        mm_t = _mm_mul_ps(mm_U, mm_W);
-        mm_t = _mm_sub_ps(mm_t, mm_A);
+        mm_t = _mm_sub_ps(_mm_mul_ps(mm_U, mm_W), mm_A);
         for (j = 0; j < k; j++)
         { //On calcule la puissance k
             mm_p = _mm_mul_ps(mm_p, mm_t);
@@ -103,7 +102,7 @@ float gm(float *U, float *W, float a, int k, int N)
     for (i = 0; i < N; i++)
     {
         sum_W += W[i];
-        sum_R += powf(W[i] * U[i] - a, k);
+        sum_R += powf(U[i] * W[i] - a, k);
     }
     return sum_R / sum_W;
 }
@@ -227,6 +226,7 @@ int main(int argc, char const *argv[])
     t = now() - t;
     printf("MP = %10.3g Temps du code vectoriel : %f seconde(s)\n", rv, t);
 
+    // Calcul parallèle
     t = now();
     rp = parallel_gm(U, W, 0, 1, N, 0, 1);
     t = now() - t;
