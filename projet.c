@@ -214,8 +214,8 @@ int main(int argc, char const *argv[])
 {
     // On lit les arguments passé avec l'appel de main
     char *end;
-    int NUM_THREADS = strtol(argv[1], &end, 10);
-    int N = strtol(argv[2], &end, 10);
+    int NUM_THREADS = 1;
+    int N = 10000;
 
     //Ici on déclare tous nos vecteurs en prenant soin de les aligner
     float U[N] __attribute__((aligned(N_ALIGN)));
