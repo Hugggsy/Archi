@@ -50,8 +50,8 @@ void init(float *U, float *W, unsigned int N)
     unsigned int i;
     for (i = 0; i < N; i++)
     {
-        U[i] = (float)rand() / RAND_MAX / N;
-        W[i] = (float)rand() / RAND_MAX / N;
+        U[i] = (float)rand() / RAND_MAX * N;
+        W[i] = (float)rand() / RAND_MAX * N;
     }
 }
 
@@ -63,6 +63,17 @@ float sum(float *W, int N)
     for (i = 0; i < N; i++)
         s += W[i];
     return s;
+}
+
+float sum_diff(float *U, float *W, float a, int k, int N)
+{
+    unsigned int i;
+    float sum_R = 0;
+    for (i = 0; i < N; i++)
+    {
+        sum_R += powf(U[i] * W[i] - a, k);
+    }
+    return sum_R;
 }
 
 //REMPLIT LE VECTEUR A PAR LA VALEUR a
@@ -82,7 +93,7 @@ void run_sse(float *U, float *W, float *A, float *RV, int k, int N)
 
     for (i = 0; i < N; i += 4)
     {
-        mm_p = _mm_set1_ps(1.0f); // Pour calculer la puissance k
+        mm_p = _mm_set1_ps(1.0f);  // Pour calculer la puissance k
         mm_U = _mm_load_ps(&U[i]); //On charge (U[4i], U[4i+1], U[4i+2], U[4i+3])
         mm_W = _mm_load_ps(&W[i]); //On charge (W[4i], W[4i+1], W[4i+2], W[4i+3])
         mm_t = _mm_sub_ps(_mm_mul_ps(mm_U, mm_W), mm_A);
@@ -105,10 +116,6 @@ float gm(float *U, float *W, float a, int k, int N)
         sum_R += powf(U[i] * W[i] - a, k);
     }
     return sum_R / sum_W;
-}
-
-float sum_R(float *U, float *W, float a, int k, int N)
-{
 }
 
 //EXECUTE CALCUL VECTORIEL ET RETOURNE RESULTAT
@@ -135,11 +142,11 @@ float gen_gm(void *thread_args)
     if (mode == 0)
     {
         arg->res.sum_of_weights = sum(W, n);
-        arg->res.sum_of_weights = sum(W, n);
+        arg->res.sum_of_weighted_diff = sum_diff(U, W, a, k, n);
     }
     else
     {
-        res = vect_gm(U, W, a, k, n);
+        //res = vect_gm(U, W, a, k, n);
     }
     pthread_exit(NULL);
 }
@@ -154,6 +161,7 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
     int size_of_partition = n / nb_threads;
     // Store result in struct table
     struct thread_args args[nb_threads];
+    float sum_of_weights, sum_of_weighted_diff = 0;
 
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -173,6 +181,7 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
         arg.U = partition_of_u;
         arg.W = partition_of_v;
         arg.a = a;
+        arg.k = k;
         arg.n = size_of_partition;
         arg.mode = mode;
         printf("Main: creating thread %ld\n", t);
@@ -191,10 +200,14 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
                 printf("ERROR: pthread_join() is %d\n", error_code);
                 exit(-1);
             }
+            sum_of_weights += arg.res.sum_of_weights;
+            sum_of_weighted_diff += arg.res.sum_of_weighted_diff;
+            printf("%f, %f", sum_of_weights, sum_of_weighted_diff);
             printf("Join with thread %ld with status %ld\n", t, (long)status);
         }
-        pthread_exit(NULL);
+        //pthread_exit(NULL);
     }
+    return sum_of_weighted_diff / sum_of_weights;
 }
 
 int main(int argc, char const *argv[])
@@ -211,24 +224,24 @@ int main(int argc, char const *argv[])
 
     float rs, rv, rp;
     float a = 0;
-    int k = 1;
+    int k = 2;
     double t;
 
     // Calcul scalaire
     t = now();
     rs = gm(U, W, a, k, N);
     t = now() - t;
-    printf("MP = %10.3g Temps du code scalaire : %f seconde(s)\n", rs, t);
+    printf("Variance = %10.3g Temps du code scalaire : %f seconde(s)\n", rs, t);
 
     // Calcul vectoriel
     t = now();
     rv = vect_gm(U, W, a, k, N);
     t = now() - t;
-    printf("MP = %10.3g Temps du code vectoriel : %f seconde(s)\n", rv, t);
+    printf("Variance = %10.3g Temps du code vectoriel : %f seconde(s)\n", rv, t);
 
     // Calcul parallèle
     t = now();
-    rp = parallel_gm(U, W, 0, 1, N, 0, 1);
+    rp = parallel_gm(U, W, a, k, N, 0, NUM_THREADS);
     t = now() - t;
-    printf("MP = %10.3g Temps du code parallele : %f seconde(s)\n", rp, t);
+    printf("Variance = %10.3g Temps du code parallele : %f seconde(s)\n", rp, t);
 }
