@@ -130,7 +130,7 @@ float vect_gm(float *U, float *W, float a, int k, int N)
     return sum(RV, N) / sum(W, N);
 }
 
-float gen_gm(void *thread_args)
+void *gen_gm(void *thread_args)
 {
     struct thread_args *arg = (struct thread_args *)thread_args;
     float *U = arg->U;
