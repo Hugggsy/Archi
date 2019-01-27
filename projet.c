@@ -47,6 +47,7 @@ double now()
 //INITIALISATION DES VECTEURS U ET W
 void init(float *U, float *W, unsigned int N)
 {
+    srand(time(NULL));
     unsigned int i;
     for (i = 0; i < N; i++)
     {
