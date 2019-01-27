@@ -226,13 +226,13 @@ int main(int argc, char const *argv[])
     // Variable pour le calcul de variance
     float a = sum(U, N) / N;
     int k = 2;
-    double t;
+    double t, tbase, tperf;
 
     // Calcul scalaire
     t = now();
     rs = gm(U, W, a, k, N);
-    t = now() - t;
-    printf("Variance = %10.5g Temps du code scalaire : %f seconde(s)\n", rs, t);
+    tbase = now() - t;
+    printf("Variance = %10.5g Temps du code scalaire : %f seconde(s)\n", rs, tbase);
 
     // Calcul vectoriel
     t = now();
@@ -249,6 +249,8 @@ int main(int argc, char const *argv[])
     // Calcul parallèle vectorielle
     t = now();
     rpv = parallel_gm(U, W, a, k, N, 1, NUM_THREADS);
-    t = now() - t;
-    printf("Variance = %10.5g Temps du code parallele vectorielle : %f seconde(s)\n", rpv, t);
+    tperf = now() - t;
+    printf("Variance = %10.5g Temps du code parallele vectorielle : %f seconde(s)\n", rpv, tperf);
+
+    printf("La version multithreade vectorielle est %f fois plus rapide que la version de base\n", tbase / tperf);
 }
