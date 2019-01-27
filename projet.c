@@ -109,12 +109,8 @@ void run_sse(float *U, float *W, float *A, float *RV, int k, int N)
 float gm(float *U, float *W, float a, int k, int N)
 {
     unsigned int i;
-    float sum_W, sum_R = 0;
-    for (i = 0; i < N; i++)
-    {
-        sum_W += W[i];
-        sum_R += powf(U[i] * W[i] - a, k);
-    }
+    float sum_W = sum(W, N);
+    float sum_R = sum_diff(U, W, a, k, N);
     return sum_R / sum_W;
 }
 
@@ -202,7 +198,7 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
             }
             sum_of_weights += arg.res.sum_of_weights;
             sum_of_weighted_diff += arg.res.sum_of_weighted_diff;
-            printf("%f, %f", sum_of_weights, sum_of_weighted_diff);
+            //printf("%f, %f", sum_of_weights, sum_of_weighted_diff);
             printf("Join with thread %ld with status %ld\n", t, (long)status);
         }
         //pthread_exit(NULL);
@@ -218,8 +214,8 @@ int main(int argc, char const *argv[])
     int N = 10000;
 
     //Ici on déclare tous nos vecteurs en prenant soin de les aligner
-    float U[N] __attribute__((aligned(N_ALIGN)));
-    float W[N] __attribute__((aligned(N_ALIGN)));
+    float U[N] __attribute__((aligned));
+    float W[N] __attribute__((aligned));
     init(U, W, N);
 
     float rs, rv, rp;
@@ -231,12 +227,14 @@ int main(int argc, char const *argv[])
     t = now();
     rs = gm(U, W, a, k, N);
     t = now() - t;
+    printf("U est %f, W est %f \n", sum(U, N), sum(W, N));
     printf("Variance = %10.3g Temps du code scalaire : %f seconde(s)\n", rs, t);
 
     // Calcul vectoriel
     t = now();
     rv = vect_gm(U, W, a, k, N);
     t = now() - t;
+    printf("U est %f, W est %f \n", sum(U, N), sum(W, N));
     printf("Variance = %10.3g Temps du code vectoriel : %f seconde(s)\n", rv, t);
 
     // Calcul parallèle
