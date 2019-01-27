@@ -50,8 +50,8 @@ void init(float *U, float *W, unsigned int N)
     unsigned int i;
     for (i = 0; i < N; i++)
     {
-        U[i] = (float)rand() / RAND_MAX * N;
-        W[i] = (float)rand() / RAND_MAX * N;
+        U[i] = (float)rand() / RAND_MAX;
+        W[i] = (float)rand() / RAND_MAX;
     }
 }
 
@@ -65,12 +65,13 @@ float sum(float *W, int N)
     return s;
 }
 
-float sum_diff(float *U, float *W, float a, int k, int N)
+double sum_diff(float *U, float *W, float a, int k, int N)
 {
     unsigned int i;
     float sum_R = 0;
     for (i = 0; i < N; i++)
     {
+        //printf("i %i, U[i] %f, W[i] %f, a %f, %10.3g\n", i, U[i], W[i], a, powf(U[i] * W[i] - a, k));
         sum_R += powf(U[i] * W[i] - a, k);
     }
     return sum_R;
@@ -132,7 +133,7 @@ void *gen_gm(void *thread_args)
     float *U = arg->U;
     float *W = arg->W;
     float a = arg->a;
-    float k = arg->k;
+    int k = arg->k;
     int n = arg->n;
     int mode = arg->mode;
     if (mode == 0)
@@ -142,7 +143,12 @@ void *gen_gm(void *thread_args)
     }
     else
     {
-        //res = vect_gm(U, W, a, k, n);
+        arg->res.sum_of_weights = sum(W, n);
+        float A[N_FLOAT] __attribute__((aligned(N_ALIGN)));
+        float RV[n] __attribute__((aligned(N_ALIGN))); //résultat de la version vectorielle
+        init_A(a, A);
+        run_sse(U, W, A, RV, k, n);
+        arg->res.sum_of_weighted_diff = sum(RV, n);
     }
     pthread_exit(NULL);
 }
@@ -155,10 +161,11 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
     void *status;
     long t;
     int size_of_partition = n / nb_threads;
-    printf("Size of partition is %i, and total size is %i \n", size_of_partition, n);
+
     // Store result in struct table
     struct thread_args args[nb_threads];
-    float sum_of_weights, sum_of_weighted_diff = 0;
+    double sum_of_weights = 0;
+    double sum_of_weighted_diff = 0;
 
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -166,24 +173,18 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
     for (t = 0; t < nb_threads; t++)
     {
 
-        // Create static partition of U and W
-        float partition_of_u[size_of_partition];
-        float partition_of_v[size_of_partition];
-        for (int i = size_of_partition * t; i < size_of_partition * (t + 1); i++)
-        {
-            partition_of_u[i - size_of_partition * t] = U[i];
-            partition_of_v[i - size_of_partition * t] = W[i];
-        }
+        // Create partition pointers of U and W
+        float *partition_of_u = U + size_of_partition * t;
+        float *partition_of_v = W + size_of_partition * t;
         // Create struct for passing args to compute function
-        struct thread_args arg = args[t];
-        arg.U = partition_of_u;
-        arg.W = partition_of_v;
-        arg.a = a;
-        arg.k = k;
-        arg.n = size_of_partition;
-        arg.mode = mode;
-        printf("Main: creating thread %ld\n", t);
-        error_code = pthread_create(&thread[t], &attr, gen_gm, (void *)&args);
+        struct thread_args *arg = &args[t];
+        arg->U = partition_of_u;
+        arg->W = partition_of_v;
+        arg->a = a;
+        arg->k = k;
+        arg->n = size_of_partition;
+        arg->mode = mode;
+        error_code = pthread_create(&thread[t], &attr, gen_gm, (void *)arg);
         if (error_code)
         {
             printf("ERROR; return code from pthread_create() is %d\n", error_code);
@@ -201,8 +202,6 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
         struct thread_args arg = args[t];
         sum_of_weights += arg.res.sum_of_weights;
         sum_of_weighted_diff += arg.res.sum_of_weighted_diff;
-        //printf("%f, %f \n", sum_of_weights, sum_of_weighted_diff);
-        printf("Join with thread %ld with status %ld\n", t, (long)status);
     }
     pthread_attr_destroy(&attr);
     return sum_of_weighted_diff / sum_of_weights;
@@ -212,16 +211,16 @@ int main(int argc, char const *argv[])
 {
     // On lit les arguments passé avec l'appel de main
     char *end;
-    int NUM_THREADS = 2;
-    int N = 10000;
+    int NUM_THREADS = 4;
+    int N = 100000;
 
     //Ici on déclare tous nos vecteurs en prenant soin de les aligner
     float U[N] __attribute__((aligned));
     float W[N] __attribute__((aligned));
     init(U, W, N);
 
-    float rs, rv, rps, rpv;
-    float a = 0;
+    float rs, rv, rps, rpv = 0;
+    float a = sum(U, N);
     int k = 2;
     double t;
 
@@ -244,8 +243,8 @@ int main(int argc, char const *argv[])
     printf("Variance = %10.3g Temps du code parallele scalaire : %f seconde(s)\n", rps, t);
 
     // Calcul parallèle vectorielle
-    //t = now();
-    //rpv = parallel_gm(U, W, a, k, N, 1, NUM_THREADS);
-    //t = now() - t;
-    //printf("Variance = %10.3g Temps du code parallele vectorielle : %f seconde(s)\n", rpv, t);
+    t = now();
+    rpv = parallel_gm(U, W, a, k, N, 1, NUM_THREADS);
+    t = now() - t;
+    printf("Variance = %10.3g Temps du code parallele vectorielle : %f seconde(s)\n", rpv, t);
 }
