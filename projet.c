@@ -155,6 +155,7 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
     void *status;
     long t;
     int size_of_partition = n / nb_threads;
+    printf("Size of partition is %i, and total size is %i \n", size_of_partition, n);
     // Store result in struct table
     struct thread_args args[nb_threads];
     float sum_of_weights, sum_of_weighted_diff = 0;
@@ -164,13 +165,14 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
 
     for (t = 0; t < nb_threads; t++)
     {
+
         // Create static partition of U and W
         float partition_of_u[size_of_partition];
         float partition_of_v[size_of_partition];
         for (int i = size_of_partition * t; i < size_of_partition * (t + 1); i++)
         {
-            partition_of_u[i] = U[i];
-            partition_of_v[i] = W[i];
+            partition_of_u[i - size_of_partition * t] = U[i];
+            partition_of_v[i - size_of_partition * t] = W[i];
         }
         // Create struct for passing args to compute function
         struct thread_args arg = args[t];
@@ -187,22 +189,22 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
             printf("ERROR; return code from pthread_create() is %d\n", error_code);
             exit(-1);
         }
-        pthread_attr_destroy(&attr);
-        for (t = 0; t < nb_threads; t++)
-        {
-            error_code = pthread_join(thread[t], &status);
-            if (error_code)
-            {
-                printf("ERROR: pthread_join() is %d\n", error_code);
-                exit(-1);
-            }
-            sum_of_weights += arg.res.sum_of_weights;
-            sum_of_weighted_diff += arg.res.sum_of_weighted_diff;
-            //printf("%f, %f", sum_of_weights, sum_of_weighted_diff);
-            printf("Join with thread %ld with status %ld\n", t, (long)status);
-        }
-        //pthread_exit(NULL);
     }
+    for (t = 0; t < nb_threads; t++)
+    {
+        error_code = pthread_join(thread[t], &status);
+        if (error_code)
+        {
+            printf("ERROR: pthread_join() is %d\n", error_code);
+            exit(-1);
+        }
+        struct thread_args arg = args[t];
+        sum_of_weights += arg.res.sum_of_weights;
+        sum_of_weighted_diff += arg.res.sum_of_weighted_diff;
+        //printf("%f, %f \n", sum_of_weights, sum_of_weighted_diff);
+        printf("Join with thread %ld with status %ld\n", t, (long)status);
+    }
+    pthread_attr_destroy(&attr);
     return sum_of_weighted_diff / sum_of_weights;
 }
 
@@ -210,7 +212,7 @@ int main(int argc, char const *argv[])
 {
     // On lit les arguments passé avec l'appel de main
     char *end;
-    int NUM_THREADS = 1;
+    int NUM_THREADS = 2;
     int N = 10000;
 
     //Ici on déclare tous nos vecteurs en prenant soin de les aligner
@@ -218,7 +220,7 @@ int main(int argc, char const *argv[])
     float W[N] __attribute__((aligned));
     init(U, W, N);
 
-    float rs, rv, rp;
+    float rs, rv, rps, rpv;
     float a = 0;
     int k = 2;
     double t;
@@ -227,19 +229,23 @@ int main(int argc, char const *argv[])
     t = now();
     rs = gm(U, W, a, k, N);
     t = now() - t;
-    printf("U est %f, W est %f \n", sum(U, N), sum(W, N));
     printf("Variance = %10.3g Temps du code scalaire : %f seconde(s)\n", rs, t);
 
     // Calcul vectoriel
     t = now();
     rv = vect_gm(U, W, a, k, N);
     t = now() - t;
-    printf("U est %f, W est %f \n", sum(U, N), sum(W, N));
     printf("Variance = %10.3g Temps du code vectoriel : %f seconde(s)\n", rv, t);
 
-    // Calcul parallèle
+    // Calcul parallèle scalaire
     t = now();
-    rp = parallel_gm(U, W, a, k, N, 0, NUM_THREADS);
+    rps = parallel_gm(U, W, a, k, N, 0, NUM_THREADS);
     t = now() - t;
-    printf("Variance = %10.3g Temps du code parallele : %f seconde(s)\n", rp, t);
+    printf("Variance = %10.3g Temps du code parallele scalaire : %f seconde(s)\n", rps, t);
+
+    // Calcul parallèle vectorielle
+    //t = now();
+    //rpv = parallel_gm(U, W, a, k, N, 1, NUM_THREADS);
+    //t = now() - t;
+    //printf("Variance = %10.3g Temps du code parallele vectorielle : %f seconde(s)\n", rpv, t);
 }
