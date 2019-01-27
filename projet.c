@@ -66,13 +66,13 @@ float sum(float *W, int N)
     return s;
 }
 
+//CALCULE LA SOMME PONDERE ET MISE A LA PUISSANCE D'UN VECTEUR
 double sum_diff(float *U, float *W, float a, int k, int N)
 {
     unsigned int i;
     float sum_R = 0;
     for (i = 0; i < N; i++)
     {
-        //printf("i %i, U[i] %f, W[i] %f, a %f, %10.3g\n", i, U[i], W[i], a, powf(U[i] * W[i] - a, k));
         sum_R += powf(U[i] * W[i] - a, k);
     }
     return sum_R;
@@ -128,6 +128,7 @@ float vect_gm(float *U, float *W, float a, int k, int N)
     return sum(RV, N) / sum(W, N);
 }
 
+//FONCTION APPELE PAR CHAQUE THREAD
 void *gen_gm(void *thread_args)
 {
     struct thread_args *arg = (struct thread_args *)thread_args;
@@ -139,11 +140,13 @@ void *gen_gm(void *thread_args)
     int mode = arg->mode;
     if (mode == 0)
     {
+        //Execute le calcul scalairement
         arg->res.sum_of_weights = sum(W, n);
         arg->res.sum_of_weighted_diff = sum_diff(U, W, a, k, n);
     }
     else
     {
+        //Execute le calcul vectoriel
         arg->res.sum_of_weights = sum(W, n);
         float A[N_FLOAT] __attribute__((aligned(N_ALIGN)));
         float RV[n] __attribute__((aligned(N_ALIGN))); //résultat de la version vectorielle
@@ -154,6 +157,7 @@ void *gen_gm(void *thread_args)
     pthread_exit(NULL);
 }
 
+//EXECUTE LE CALCUL DE FACON MULTITHREADE, SOIT SCALAIRE, SOIT VECTORIEL
 float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_threads)
 {
     pthread_t thread[nb_threads];
@@ -210,8 +214,6 @@ float parallel_gm(float *U, float *W, float a, int k, int n, int mode, int nb_th
 
 int main(int argc, char const *argv[])
 {
-    // On lit les arguments passé avec l'appel de main
-    char *end;
     int NUM_THREADS = 4;
     int N = 100000;
 
@@ -221,7 +223,8 @@ int main(int argc, char const *argv[])
     init(U, W, N);
 
     float rs, rv, rps, rpv = 0;
-    float a = sum(U, N);
+    // Variable pour le calcul de variance
+    float a = sum(U, N) / N;
     int k = 2;
     double t;
 
@@ -229,23 +232,23 @@ int main(int argc, char const *argv[])
     t = now();
     rs = gm(U, W, a, k, N);
     t = now() - t;
-    printf("Variance = %10.3g Temps du code scalaire : %f seconde(s)\n", rs, t);
+    printf("Variance = %10.5g Temps du code scalaire : %f seconde(s)\n", rs, t);
 
     // Calcul vectoriel
     t = now();
     rv = vect_gm(U, W, a, k, N);
     t = now() - t;
-    printf("Variance = %10.3g Temps du code vectoriel : %f seconde(s)\n", rv, t);
+    printf("Variance = %10.5g Temps du code vectoriel : %f seconde(s)\n", rv, t);
 
     // Calcul parallèle scalaire
     t = now();
     rps = parallel_gm(U, W, a, k, N, 0, NUM_THREADS);
     t = now() - t;
-    printf("Variance = %10.3g Temps du code parallele scalaire : %f seconde(s)\n", rps, t);
+    printf("Variance = %10.5g Temps du code parallele scalaire : %f seconde(s)\n", rps, t);
 
     // Calcul parallèle vectorielle
     t = now();
     rpv = parallel_gm(U, W, a, k, N, 1, NUM_THREADS);
     t = now() - t;
-    printf("Variance = %10.3g Temps du code parallele vectorielle : %f seconde(s)\n", rpv, t);
+    printf("Variance = %10.5g Temps du code parallele vectorielle : %f seconde(s)\n", rpv, t);
 }
